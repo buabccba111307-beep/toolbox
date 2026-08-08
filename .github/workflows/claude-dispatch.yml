@@ -76,8 +76,8 @@ jobs:
           # PR 에 CI 가 트리거되지 않는다 = 검증 게이트 무력화.
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 25
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm:*),Bash(npx:*),mcp__github_file_ops__commit_files,mcp__github__*"
+            --max-turns 50
+            --allowedTools "Read,Write,Edit,Glob,Grep,TodoWrite,Bash(npm:*),Bash(npx:*),Bash(ls:*),Bash(cat:*),Bash(mkdir:*),Bash(find:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),mcp__github_file_ops__commit_files,mcp__github__*"
           prompt: |
             이슈 #${{ github.event.issue.number }} 를 처리하세요.
 
@@ -141,8 +141,8 @@ jobs:
           # 사용량 소모가 크게 늘어나므로 기본은 Sonnet 으로 둔다.
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 40
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm:*),Bash(npx:*),mcp__github_file_ops__commit_files,mcp__github__*"
+            --max-turns 80
+            --allowedTools "Read,Write,Edit,Glob,Grep,TodoWrite,Bash(npm:*),Bash(npx:*),Bash(ls:*),Bash(cat:*),Bash(mkdir:*),Bash(find:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),mcp__github_file_ops__commit_files,mcp__github__*"
           prompt: |
             이슈 #${{ github.event.issue.number }} 는 검토를 통과했습니다. 구현하세요.
 
