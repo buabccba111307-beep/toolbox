@@ -1,0 +1,247 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="오디오 자르기 — toolbox"
+  description="업로드한 오디오 파일의 원하는 구간만 시작/끝 시각으로 잘라 WAV 파일로 다운로드합니다. 파일이 기기를 벗어나지 않습니다."
+>
+  <h1>오디오 자르기</h1>
+  <p>
+    mp3·wav·m4a 등 오디오 파일을 업로드하고 시작·끝 시각을 지정하면 그 구간만 WAV 파일로
+    잘라 내려받을 수 있습니다. <strong>파일은 기기를 벗어나지 않습니다</strong> — 서버로
+    전송하지 않고 브라우저 안에서 바로 처리됩니다.
+  </p>
+
+  <div>
+    <label for="file-input">오디오 파일 선택</label>
+    <input id="file-input" type="file" accept="audio/*" />
+  </div>
+
+  <p id="status" role="status"></p>
+
+  <div class="grid" id="range-controls" hidden>
+    <div>
+      <label for="start-input">시작 시각 (초)</label>
+      <input id="start-input" type="number" step="0.01" min="0" value="0" inputmode="decimal" />
+    </div>
+
+    <div>
+      <label for="end-input">끝 시각 (초)</label>
+      <input id="end-input" type="number" step="0.01" min="0" inputmode="decimal" />
+    </div>
+  </div>
+
+  <p id="duration-info" class="info"></p>
+
+  <button id="trim-btn" type="button" hidden>자르기 &amp; WAV 다운로드</button>
+
+  <p id="error" class="error" role="alert"></p>
+
+  <h2>오디오 자르기가 왜 브라우저 도구여야 하나요</h2>
+  <p>
+    검색이나 챗봇은 오디오를 자르는 "방법"은 설명해 줄 수 있어도, 사용자가 가진 실제 파일을
+    직접 잘라 주지는 못합니다. 이 도구는 업로드한 파일을 브라우저 내장 오디오 API 로 직접
+    디코딩하고, 지정한 구간의 샘플만 잘라 WAV 파일로 다시 인코딩합니다. 알림음이나 통화
+    연결음을 만들거나, 긴 강의 녹음에서 필요한 부분만 추출할 때 바로 쓸 수 있습니다.
+  </p>
+
+  <h2>WAV 로 내보내는 이유</h2>
+  <p>
+    WAV 는 압축 없는 PCM 오디오 포맷이라 별도의 인코더 없이도 브라우저에서 바이트열을 직접
+    조립할 수 있고, 어떤 플레이어에서도 재생이 보장됩니다. 원본이 mp3 나 m4a 처럼 압축된
+    포맷이어도 디코딩한 뒤에는 원본 손실 없이 해당 구간의 샘플을 그대로 담아 WAV 로
+    내보내므로, 원본 압축 과정에서 생긴 손실 외에 추가 화질(음질) 저하는 없습니다.
+  </p>
+
+  <p class="privacy-note">
+    파일은 서버로 전송되지 않습니다. 선택한 오디오는 이 브라우저 탭 안에서만 처리되고,
+    새로고침하면 사라집니다.
+  </p>
+</Base>
+
+<style>
+  input[type='file'] {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  input[type='number'] {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+
+  #status,
+  #duration-info {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  button {
+    margin-top: 1rem;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: var(--accent);
+  }
+
+  .error {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: #dc2626;
+    font-size: 0.875rem;
+  }
+
+  .privacy-note {
+    margin-top: 2rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+</style>
+
+<script>
+  import { calcTrimRange, trimChannelData, encodeWav, AudioTrimError } from '../../lib/audio-trim';
+
+  const fileInput = document.querySelector<HTMLInputElement>('#file-input');
+  const statusEl = document.querySelector<HTMLParagraphElement>('#status');
+  const rangeControls = document.querySelector<HTMLDivElement>('#range-controls');
+  const startInput = document.querySelector<HTMLInputElement>('#start-input');
+  const endInput = document.querySelector<HTMLInputElement>('#end-input');
+  const durationInfo = document.querySelector<HTMLParagraphElement>('#duration-info');
+  const trimButton = document.querySelector<HTMLButtonElement>('#trim-btn');
+  const errorEl = document.querySelector<HTMLParagraphElement>('#error');
+
+  if (
+    fileInput &&
+    statusEl &&
+    rangeControls &&
+    startInput &&
+    endInput &&
+    durationInfo &&
+    trimButton &&
+    errorEl
+  ) {
+    let currentFile: File | null = null;
+    let currentAudioBuffer: AudioBuffer | null = null;
+
+    const reset = (): void => {
+      errorEl.textContent = '';
+      statusEl.textContent = '';
+      durationInfo.textContent = '';
+      rangeControls.hidden = true;
+      trimButton.hidden = true;
+      currentFile = null;
+      currentAudioBuffer = null;
+    };
+
+    fileInput.addEventListener('change', async () => {
+      reset();
+      const file = fileInput.files?.[0];
+      if (!file) return;
+
+      currentFile = file;
+      statusEl.textContent = '디코딩 중...';
+
+      try {
+        const buffer = await file.arrayBuffer();
+        const audioContext = new AudioContext();
+        const audioBuffer = await audioContext.decodeAudioData(buffer);
+        await audioContext.close();
+
+        currentAudioBuffer = audioBuffer;
+        statusEl.textContent = '';
+        durationInfo.textContent = `전체 길이: ${audioBuffer.duration.toFixed(2)}초 · 샘플레이트: ${audioBuffer.sampleRate}Hz · 채널: ${audioBuffer.numberOfChannels}개`;
+
+        startInput.value = '0';
+        endInput.value = audioBuffer.duration.toFixed(2);
+        endInput.max = String(audioBuffer.duration);
+        startInput.max = String(audioBuffer.duration);
+
+        rangeControls.hidden = false;
+        trimButton.hidden = false;
+      } catch {
+        statusEl.textContent = '';
+        errorEl.textContent = '오디오 파일을 디코딩하는 중 오류가 발생했습니다.';
+      }
+    });
+
+    trimButton.addEventListener('click', () => {
+      if (!currentAudioBuffer || !currentFile) return;
+      errorEl.textContent = '';
+
+      try {
+        const startSec = Number(startInput.value);
+        const endSec = Number(endInput.value);
+
+        const channelData: Float32Array[] = [];
+        for (let i = 0; i < currentAudioBuffer.numberOfChannels; i++) {
+          channelData.push(currentAudioBuffer.getChannelData(i));
+        }
+
+        const range = calcTrimRange(
+          currentAudioBuffer.length,
+          currentAudioBuffer.sampleRate,
+          startSec,
+          endSec
+        );
+        const trimmed = trimChannelData(channelData, range);
+        const wav = encodeWav(trimmed, currentAudioBuffer.sampleRate);
+
+        const blob = new Blob([wav], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+
+        const baseName = currentFile.name.replace(/\.[^.]+$/, '');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${baseName || 'audio'}-trimmed.wav`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        errorEl.textContent =
+          err instanceof AudioTrimError ? err.message : '오디오를 자르는 중 오류가 발생했습니다.';
+      }
+    });
+  }
+</script>
