@@ -36,6 +36,10 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # claude-dispatch 가 연 PR 은 작성자가 claude[bot] 이라 기본 봇 차단에 막힌다.
+          # 리뷰는 코멘트만 남기고 커밋을 만들지 않으므로 루프 위험이 없다.
+          # '*' 대신 claude 만 허용해 다른 봇은 계속 차단한다.
+          allowed_bots: 'claude'
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
