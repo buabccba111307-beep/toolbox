@@ -1,0 +1,150 @@
+# .github/workflows/claude-dispatch.yml
+#
+# 라벨 기반 자율성 게이트.
+# 핵심 원칙: 어떤 작업이 자동 진행 가능한지를 AI 가 판단하지 않는다.
+#            GitHub 라벨 → 등급 매핑은 결정론적이다.
+#
+# ── 사전 준비 ────────────────────────────────────────────────
+# 1) Claude GitHub App 설치 (필수):  https://github.com/apps/claude
+#    앱이 없으면 액션이 인증하지 못한다.
+#
+# 2) 인증 시크릿 — 둘 중 하나
+#    (A) CLAUDE_CODE_OAUTH_TOKEN : Pro/Max/Team/Enterprise 구독 사용량으로 청구.
+#        로컬에서  claude setup-token  실행 후
+#        gh secret set CLAUDE_CODE_OAUTH_TOKEN
+#    (B) ANTHROPIC_API_KEY : 토큰당 별도 과금 (console.anthropic.com)
+#
+#    구독 토큰은 대화형 Claude Code 와 **같은 사용량 한도**를 공유한다.
+#    CI 가 많이 돌면 본인 작업분이 줄어든다. 분리하려면 (B).
+#    조직 단위로 공유할 시크릿이라면 (B) 를 써야 한다 —
+#    OAuth 토큰은 setup-token 을 실행한 개인 구독에 묶이기 때문.
+#
+# 3) 라벨 생성
+#    gh label create auto_safe --color 0E8A16
+#    gh label create proposed  --color FBCA04
+#    gh label create approved  --color 1D76DB
+#
+# ── 주의 ────────────────────────────────────────────────────
+# github_token 을 넘기지 않는다. 기본 GITHUB_TOKEN 으로 만든 커밋에는
+# GitHub 이 워크플로를 트리거하지 않아서, Claude 가 연 PR 에 CI 가
+# 돌지 않는다 — 검증 게이트가 조용히 무력화된다.
+# 넘기지 않으면 Claude GitHub App 으로 인증되어 CI 가 정상 동작한다.
+
+name: Claude Dispatch
+
+on:
+  issues:
+    types: [labeled]
+
+# id-token: write 는 기본 GitHub App 인증에 필요하다 (빠지면 실패).
+# actions: read 는 Claude 가 CI 결과를 읽게 해준다.
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
+jobs:
+  # ── auto_safe: 즉시 실행 ─────────────────────────────
+  auto:
+    if: github.event.label.name == 'auto_safe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 25
+          prompt: |
+            이슈 #${{ github.event.issue.number }} 를 처리하세요.
+
+            제목: ${{ github.event.issue.title }}
+            본문:
+            ${{ github.event.issue.body }}
+
+            규칙:
+            - 브랜치 auto/task/${{ github.event.issue.number }} 에서 작업할 것
+            - 문서/테스트/리팩터 범위를 벗어나면 중단하고 TASK_BLOCKED 를 출력할 것
+            - 작업 후 반드시 `npm run typecheck` 와 `npm run test:run` 을 실행해
+              결과를 PR 본문에 첨부할 것
+            - 검증하지 못한 부분은 "미검증" 이라고 명시할 것
+            - 프로덕션 배포, force push, .env 접근은 금지
+
+  # ── proposed: 사람 검토 대기 ──────────────────────────
+  gate:
+    if: github.event.label.name == 'proposed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 검토 대기 안내
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '이 이슈는 **proposed** 등급입니다 — 자동 실행되지 않습니다.',
+                '',
+                '검토 후 진행하려면 `approved` 라벨을 추가하세요.',
+                '',
+                '_등급 매핑은 라벨로 결정되며 AI 가 판단하지 않습니다._'
+              ].join('\n')
+            })
+
+  # ── approved: 검토를 통과한 proposed 작업 실행 ────────
+  approved:
+    if: github.event.label.name == 'approved'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 복잡한 작업에 Opus 가 필요하면 --model claude-opus-5 로 올린다.
+          # 사용량 소모가 크게 늘어나므로 기본은 Sonnet 으로 둔다.
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 40
+          prompt: |
+            이슈 #${{ github.event.issue.number }} 는 검토를 통과했습니다. 구현하세요.
+
+            제목: ${{ github.event.issue.title }}
+            본문:
+            ${{ github.event.issue.body }}
+
+            규칙:
+            - 브랜치 auto/task/${{ github.event.issue.number }} 에서 작업할 것
+            - PR 을 열되 **머지하지 말 것** — 머지는 사람이 한다
+            - `npm run typecheck`, `npm run test:run` 을 실행하고
+              출력을 PR 본문에 첨부할 것
+            - 검증하지 못한 부분은 "미검증" 이라고 명시할 것
+            - 프로덕션 배포, force push, .env 접근은 금지
