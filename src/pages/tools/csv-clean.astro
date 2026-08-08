@@ -1,0 +1,364 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="CSV 중복 행 정리 — toolbox"
+  description="CSV 파일에서 중복된 행과 빈 행을 지우고 각 필드의 공백을 정리해 새 CSV 파일로 다운로드합니다. 파일이 기기를 벗어나지 않습니다."
+>
+  <h1>CSV 중복 행 정리</h1>
+  <p>
+    엑셀·구글 시트에서 내보낸 연락처 명단, 주문 목록, 설문 응답 CSV 파일을 올리면
+    중복된 행과 빈 행을 지우고 필드 앞뒤 공백을 정리한 새 CSV 파일을 만들어 줍니다.
+    파일은 브라우저 밖으로 전송되지 않습니다. <strong>UTF-8 로 인코딩된 CSV 만 지원합니다.</strong>
+  </p>
+
+  <label for="file-input">CSV 파일 선택</label>
+  <input id="file-input" type="file" accept=".csv,text/csv" />
+
+  <label for="csv-text">또는 CSV 텍스트를 직접 붙여넣기</label>
+  <textarea id="csv-text" rows="8" placeholder="이름,이메일&#10;홍길동,hong@example.com"></textarea>
+
+  <div class="options">
+    <div class="option">
+      <label for="delimiter">구분자</label>
+      <select id="delimiter">
+        <option value="comma" selected>쉼표 (,)</option>
+        <option value="semicolon">세미콜론 (;)</option>
+        <option value="tab">탭</option>
+      </select>
+    </div>
+
+    <div class="checkboxes">
+      <div class="checkbox-row">
+        <input id="has-header" type="checkbox" checked />
+        <label for="has-header">첫 행은 헤더</label>
+      </div>
+      <div class="checkbox-row">
+        <input id="trim-whitespace" type="checkbox" checked />
+        <label for="trim-whitespace">앞뒤 공백 제거</label>
+      </div>
+      <div class="checkbox-row">
+        <input id="remove-empty" type="checkbox" checked />
+        <label for="remove-empty">빈 행 제거</label>
+      </div>
+      <div class="checkbox-row">
+        <input id="remove-duplicate" type="checkbox" checked />
+        <label for="remove-duplicate">중복 행 제거</label>
+      </div>
+    </div>
+  </div>
+
+  <button id="clean-btn" type="button">정리하기</button>
+
+  <p id="error" class="error" role="alert"></p>
+  <p id="status" role="status"></p>
+
+  <div id="result" class="result" hidden>
+    <div class="result-header">
+      <h2>결과 미리보기</h2>
+      <button id="download-btn" type="button">CSV 다운로드</button>
+    </div>
+    <div class="table-wrap">
+      <table id="preview-table"></table>
+    </div>
+  </div>
+
+  <h2>CSV 정리가 왜 필요한가요</h2>
+  <p>
+    여러 사람이 나눠 입력한 연락처 목록이나, 같은 설문에 두 번 응답한 참여자 명단에는
+    똑같은 행이 중복으로 들어가기 쉽습니다. 셀 안에 섞여 들어간 앞뒤 공백은 눈으로는
+    잘 보이지 않지만 "홍길동"과 "홍길동 " 을 서로 다른 값으로 취급해 집계나 중복 확인을
+    어렵게 만듭니다. 이 도구는 이런 문제를 파일을 열어보지 않고도 한 번에 정리해 줍니다.
+  </p>
+
+  <h2>따옴표로 감싼 필드도 정확히 처리합니다</h2>
+  <p>
+    CSV 표준에서는 필드 안에 쉼표나 줄바꿈이 들어가면 큰따옴표로 감싸고, 큰따옴표 자체는
+    두 번 반복(<code>""</code>)해 이스케이프합니다. 엑셀이나 구글 시트로 내보낸 주소·메모
+    칼럼에는 이런 패턴이 흔히 등장합니다. 이 도구는 이 규칙을 직접 구현한 파서로 처리하므로
+    셀 안에 줄바꿈이 있는 주소나 쉼표가 섞인 메모도 깨지지 않고 그대로 보존됩니다.
+    처리는 모두 이 브라우저 탭 안에서 끝나며, 새로고침하면 입력한 내용도 함께 사라집니다.
+  </p>
+</Base>
+
+<style>
+  input[type='file'],
+  textarea,
+  select {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    box-sizing: border-box;
+  }
+
+  textarea {
+    margin-top: 0.5rem;
+    resize: vertical;
+    font-family: monospace;
+  }
+
+  label {
+    display: block;
+    margin-top: 1.25rem;
+    margin-bottom: 0.375rem;
+    font-size: 0.9375rem;
+  }
+
+  .options {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .option label {
+    margin-top: 0;
+  }
+
+  .checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .checkbox-row label {
+    margin: 0;
+    font-size: 0.9375rem;
+  }
+
+  .checkbox-row input {
+    width: auto;
+  }
+
+  @media (max-width: 30rem) {
+    .options {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  button {
+    margin-top: 1.25rem;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: var(--accent);
+  }
+
+  .error {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: #dc2626;
+    font-size: 0.875rem;
+  }
+
+  #status {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .result {
+    margin-top: 1rem;
+  }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .result-header h2 {
+    margin: 0;
+  }
+
+  .result-header button {
+    margin-top: 0;
+  }
+
+  .table-wrap {
+    margin-top: 1rem;
+    max-height: 24rem;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.875rem;
+  }
+
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    white-space: pre-wrap;
+  }
+
+  thead th {
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
+    position: sticky;
+    top: 0;
+  }
+
+  code {
+    background: color-mix(in srgb, var(--fg) 8%, transparent);
+    padding: 0.1em 0.35em;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+  }
+</style>
+
+<script>
+  import { parseCsv, stringifyCsv, cleanRows, CsvParseError, type CsvDelimiter } from '../../lib/csv-clean';
+
+  const fileInput = document.querySelector<HTMLInputElement>('#file-input');
+  const textArea = document.querySelector<HTMLTextAreaElement>('#csv-text');
+  const delimiterSelect = document.querySelector<HTMLSelectElement>('#delimiter');
+  const hasHeaderInput = document.querySelector<HTMLInputElement>('#has-header');
+  const trimInput = document.querySelector<HTMLInputElement>('#trim-whitespace');
+  const removeEmptyInput = document.querySelector<HTMLInputElement>('#remove-empty');
+  const removeDuplicateInput = document.querySelector<HTMLInputElement>('#remove-duplicate');
+  const cleanButton = document.querySelector<HTMLButtonElement>('#clean-btn');
+  const errorEl = document.querySelector<HTMLParagraphElement>('#error');
+  const statusEl = document.querySelector<HTMLParagraphElement>('#status');
+  const resultEl = document.querySelector<HTMLDivElement>('#result');
+  const previewTable = document.querySelector<HTMLTableElement>('#preview-table');
+  const downloadButton = document.querySelector<HTMLButtonElement>('#download-btn');
+
+  const DELIMITER_MAP: Record<string, CsvDelimiter> = {
+    comma: ',',
+    semicolon: ';',
+    tab: '\t',
+  };
+
+  if (
+    fileInput &&
+    textArea &&
+    delimiterSelect &&
+    hasHeaderInput &&
+    trimInput &&
+    removeEmptyInput &&
+    removeDuplicateInput &&
+    cleanButton &&
+    errorEl &&
+    statusEl &&
+    resultEl &&
+    previewTable &&
+    downloadButton
+  ) {
+    let cleanedText = '';
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      textArea.value = await file.text();
+    });
+
+    const renderPreview = (rows: string[][], hasHeader: boolean): void => {
+      previewTable.innerHTML = '';
+
+      if (rows.length === 0) {
+        resultEl.hidden = false;
+        return;
+      }
+
+      const bodyRows = hasHeader ? rows.slice(1) : rows;
+      const headerRow = rows[0];
+
+      if (hasHeader && headerRow) {
+        const thead = document.createElement('thead');
+        const tr = document.createElement('tr');
+        for (const cell of headerRow) {
+          const th = document.createElement('th');
+          th.textContent = cell;
+          tr.appendChild(th);
+        }
+        thead.appendChild(tr);
+        previewTable.appendChild(thead);
+      }
+
+      const tbody = document.createElement('tbody');
+      for (const row of bodyRows) {
+        const tr = document.createElement('tr');
+        for (const cell of row) {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      previewTable.appendChild(tbody);
+
+      resultEl.hidden = false;
+    };
+
+    cleanButton.addEventListener('click', () => {
+      errorEl.textContent = '';
+      statusEl.textContent = '';
+      resultEl.hidden = true;
+      downloadButton.disabled = true;
+      cleanedText = '';
+
+      const text = textArea.value;
+      const delimiter = DELIMITER_MAP[delimiterSelect.value] ?? ',';
+
+      try {
+        const parsed = parseCsv(text, delimiter);
+        const result = cleanRows(parsed, {
+          hasHeader: hasHeaderInput.checked,
+          trimWhitespace: trimInput.checked,
+          removeEmptyRows: removeEmptyInput.checked,
+          removeDuplicateRows: removeDuplicateInput.checked,
+        });
+
+        cleanedText = stringifyCsv(result.rows, delimiter);
+        renderPreview(result.rows, hasHeaderInput.checked);
+        statusEl.textContent = `총 ${result.rows.length}행 (빈 행 ${result.removedEmptyCount}개, 중복 행 ${result.removedDuplicateCount}개 제거됨)`;
+        downloadButton.disabled = false;
+      } catch (err) {
+        errorEl.textContent = err instanceof CsvParseError ? err.message : 'CSV 를 처리하는 중 오류가 발생했습니다.';
+      }
+    });
+
+    downloadButton.addEventListener('click', () => {
+      if (!cleanedText) return;
+
+      const blob = new Blob([cleanedText], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cleaned.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+</script>
