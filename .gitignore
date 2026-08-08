@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.astro/
+.vercel/
+.output/
+
+# 테스트 산출물
+playwright-report/
+test-results/
+coverage/
+
+# 환경변수 — 절대 커밋하지 않습니다
+.env
+.env.*
+!.env.example
+
+# 로그
+*.log
+npm-debug.log*

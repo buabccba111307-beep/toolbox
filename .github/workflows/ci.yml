@@ -1,0 +1,76 @@
+# .github/workflows/ci.yml
+#
+# 검증 게이트. 이게 이 시스템의 심장입니다 —
+# 에이전트가 자기 코드를 자기가 채점하지 못하게 하는 외부 장치.
+#
+# 프로젝트에 복사: mkdir .github\workflows ; copy C:\dev\templates\ci.yml .github\workflows\
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 같은 브랜치에 새 푸시가 오면 이전 실행 취소 (러너 시간 절약)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # astro check 를 씁니다. tsc --noEmit 은 .astro 파일을 검사하지 못합니다.
+      # 주의: astro check 는 TypeScript 6.x 가 필요합니다 (7.x 는 프로그래매틱 API 미제공)
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Unit tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E
+        run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

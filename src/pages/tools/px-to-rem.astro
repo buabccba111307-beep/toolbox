@@ -1,0 +1,103 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="px ↔ rem 변환기 — toolbox"
+  description="CSS px 와 rem 을 양방향으로 변환합니다. root 폰트 크기를 바꿔가며 계산할 수 있고, 모든 계산은 브라우저에서 처리됩니다."
+>
+  <h1>px ↔ rem 변환기</h1>
+  <p>한쪽에 입력하면 반대쪽이 즉시 계산됩니다.</p>
+
+  <div class="grid">
+    <div>
+      <label for="px">px</label>
+      <input id="px" type="number" step="any" value="16" inputmode="decimal" />
+    </div>
+
+    <div>
+      <label for="rem">rem</label>
+      <input id="rem" type="number" step="any" value="1" inputmode="decimal" />
+    </div>
+
+    <div>
+      <label for="root">root 폰트 크기 (px)</label>
+      <input id="root" type="number" step="any" min="1" value="16" inputmode="decimal" />
+    </div>
+  </div>
+
+  <h2>rem 을 쓰는 이유</h2>
+  <p>
+    <code>rem</code> 은 루트 요소(<code>&lt;html&gt;</code>)의 폰트 크기를 기준으로 하는 상대 단위입니다.
+    사용자가 브라우저 기본 글자 크기를 키우면 <code>rem</code> 로 지정한 값은 함께 커지지만
+    <code>px</code> 는 고정됩니다. 그래서 글자 크기와 여백에는 <code>rem</code> 을 쓰는 편이 접근성에 유리합니다.
+  </p>
+
+  <h2>16px 기준이 흔한 이유</h2>
+  <p>
+    대부분의 브라우저 기본 폰트 크기가 16px 이기 때문입니다. 따라서 별도 설정이 없다면
+    <code>1rem = 16px</code> 이고, <code>24px</code> 은 <code>1.5rem</code> 이 됩니다.
+    디자인 시스템에서 root 를 10px 로 낮춰 계산을 단순화하는 방식도 있는데,
+    이 경우 사용자의 기본 글자 크기 설정을 무시하게 되므로 권장되지 않습니다.
+  </p>
+</Base>
+
+<style>
+  .grid {
+    display: grid;
+    gap: 1rem;
+    margin-top: 2rem;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .grid > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 30rem) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  code {
+    background: color-mix(in srgb, var(--fg) 8%, transparent);
+    padding: 0.1em 0.35em;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+  }
+</style>
+
+<script>
+  import { pxToRem, remToPx, formatValue, parseInput, DEFAULT_ROOT_PX } from '../../lib/px-rem';
+
+  const pxInput = document.querySelector<HTMLInputElement>('#px');
+  const remInput = document.querySelector<HTMLInputElement>('#rem');
+  const rootInput = document.querySelector<HTMLInputElement>('#root');
+
+  if (pxInput && remInput && rootInput) {
+    // root 가 비었거나 0 이하이면 브라우저 기본값으로 되돌립니다.
+    // 이렇게 하면 변환 함수가 예외를 던질 일이 없습니다.
+    const currentRoot = (): number => {
+      const parsed = parseInput(rootInput.value);
+      return parsed !== null && parsed > 0 ? parsed : DEFAULT_ROOT_PX;
+    };
+
+    const syncFromPx = (): void => {
+      const value = parseInput(pxInput.value);
+      remInput.value = value === null ? '' : formatValue(pxToRem(value, currentRoot()));
+    };
+
+    const syncFromRem = (): void => {
+      const value = parseInput(remInput.value);
+      pxInput.value = value === null ? '' : formatValue(remToPx(value, currentRoot()));
+    };
+
+    pxInput.addEventListener('input', syncFromPx);
+    remInput.addEventListener('input', syncFromRem);
+    // root 가 바뀌면 px 를 기준으로 rem 을 다시 계산합니다.
+    rootInput.addEventListener('input', syncFromPx);
+
+    syncFromPx();
+  }
+</script>

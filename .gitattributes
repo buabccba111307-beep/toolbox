@@ -1,0 +1,29 @@
+# .gitattributes — 줄바꿈을 리포 안에서 LF 로 고정
+# Windows 에서 편집하고 Linux 러너에서 CI 를 돌리므로 필수입니다.
+#
+# 프로젝트에 복사: copy C:\dev\templates\gitattributes .gitattributes
+
+* text=auto eol=lf
+
+# 셸 스크립트는 반드시 LF
+*.sh   text eol=lf
+
+# Windows 배치/PowerShell 은 CRLF
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+# 바이너리 — 변환 금지
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.avif binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.pdf  binary
+
+# diff 노이즈 억제
+package-lock.json -diff
+pnpm-lock.yaml    -diff

@@ -1,0 +1,64 @@
+---
+import Base from '../layouts/Base.astro';
+
+// 도구를 추가할 때 이 배열에만 항목을 넣으면 됩니다.
+// 에이전트가 도구를 추가하는 작업 = 라우트 파일 하나 + 이 배열 한 줄.
+const tools = [
+  {
+    href: '/tools/px-to-rem/',
+    name: 'px ↔ rem 변환기',
+    description: 'CSS 단위를 양방향으로 변환합니다. root 폰트 크기 조정 가능.',
+  },
+];
+---
+
+<Base
+  title="toolbox — 개발자를 위한 작은 도구 모음"
+  description="브라우저에서 바로 쓰는 개발용 변환기와 계산기 모음. 설치 없이, 데이터 전송 없이."
+>
+  <h1>toolbox</h1>
+  <p>브라우저에서 바로 도는 작은 개발 도구들입니다. 설치도, 서버 전송도 없습니다.</p>
+
+  <ul class="tools">
+    {
+      tools.map((tool) => (
+        <li>
+          <a href={tool.href}>{tool.name}</a>
+          <span>{tool.description}</span>
+        </li>
+      ))
+    }
+  </ul>
+</Base>
+
+<style>
+  .tools {
+    list-style: none;
+    padding: 0;
+    margin-top: 2rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .tools li {
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    padding: 1rem 1.125rem;
+  }
+
+  .tools a {
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .tools a:hover {
+    text-decoration: underline;
+  }
+
+  .tools span {
+    display: block;
+    color: var(--muted);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+</style>
