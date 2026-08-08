@@ -1,0 +1,59 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../site';
+import { tools, toolHref } from '../tools/registry';
+
+// 목록은 src/tools/entries/ 를 훑어 자동으로 만들어집니다.
+// 도구를 추가할 때 이 파일은 건드리지 않습니다 — 항목 파일 하나만 새로 만드세요.
+---
+
+<Base title={`${SITE.heading} — ${SITE.name}`} description={SITE.description}>
+  <h1>{SITE.heading}</h1>
+  <p>{SITE.lead}</p>
+
+  <ul class="tools">
+    {
+      tools.map((tool) => (
+        <li>
+          <a href={toolHref(tool)}>{tool.name}</a>
+          <span>{tool.description}</span>
+        </li>
+      ))
+    }
+  </ul>
+
+  <h2>{SITE.whyHeading}</h2>
+  <p>{SITE.whyBody}</p>
+</Base>
+
+<style>
+  .tools {
+    list-style: none;
+    padding: 0;
+    margin-top: 2rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .tools li {
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    padding: 1rem 1.125rem;
+  }
+
+  .tools a {
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .tools a:hover {
+    text-decoration: underline;
+  }
+
+  .tools span {
+    display: block;
+    color: var(--muted);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+</style>

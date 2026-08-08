@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4321;
+// 사이트마다 포트를 다르게 둬서 모노레포에서 동시에 e2e 를 돌릴 수 있게 한다.
+const PORT = 4322;
 
 export default defineConfig({
   testDir: './e2e',
@@ -16,7 +17,7 @@ export default defineConfig({
 
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
-  // 빌드 결과물을 대상으로 검증합니다 — dev 서버가 아니라 실제 배포될 산출물.
+  // dev 서버가 아니라 빌드 산출물을 검증한다.
   webServer: {
     command: `npm run build && npm run preview -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,

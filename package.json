@@ -1,25 +1,14 @@
 {
-  "name": "toolbox",
-  "type": "module",
-  "version": "0.0.1",
+  "name": "toolbox-monorepo",
   "private": true,
+  "type": "module",
+  "workspaces": [
+    "sites/*"
+  ],
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "typecheck": "astro check --minimumSeverity error",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "e2e": "playwright test"
-  },
-  "dependencies": {
-    "astro": "^7.2.0"
-  },
-  "devDependencies": {
-    "@astrojs/check": "^0.9.10",
-    "@playwright/test": "^1.62.1",
-    "@types/node": "^26.2.0",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "test:run": "npm run test:run --workspaces",
+    "e2e": "npm run e2e --workspaces"
   }
 }

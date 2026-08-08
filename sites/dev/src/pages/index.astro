@@ -1,17 +1,15 @@
 ---
 import Base from '../layouts/Base.astro';
+import { SITE } from '../site';
 import { tools, toolHref } from '../tools/registry';
 
 // 목록은 src/tools/entries/ 를 훑어 자동으로 만들어집니다.
 // 도구를 추가할 때 이 파일은 건드리지 않습니다 — 항목 파일 하나만 새로 만드세요.
 ---
 
-<Base
-  title="toolbox — 개발자를 위한 작은 도구 모음"
-  description="브라우저에서 바로 쓰는 개발용 변환기와 계산기 모음. 설치 없이, 데이터 전송 없이."
->
-  <h1>toolbox</h1>
-  <p>브라우저에서 바로 도는 작은 개발 도구들입니다. 설치도, 서버 전송도 없습니다.</p>
+<Base title={`${SITE.heading} — ${SITE.name}`} description={SITE.description}>
+  <h1>{SITE.heading}</h1>
+  <p>{SITE.lead}</p>
 
   <ul class="tools">
     {
@@ -23,6 +21,9 @@ import { tools, toolHref } from '../tools/registry';
       ))
     }
   </ul>
+
+  <h2>{SITE.whyHeading}</h2>
+  <p>{SITE.whyBody}</p>
 </Base>
 
 <style>
