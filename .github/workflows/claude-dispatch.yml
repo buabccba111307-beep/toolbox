@@ -67,9 +67,17 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # prompt 를 주면 자동화 모드로 돌고, 이때 Claude 는 --allowedTools 로
+          # 명시하지 않은 도구를 전혀 쓸 수 없다. 빠뜨리면 에이전트가 계속
+          # 거부당하면서도 액션은 success 를 반환한다 (실제로 겪음).
+          #
+          # 커밋은 반드시 mcp__github_file_ops__commit_files 를 쓴다.
+          # bash 로 git push 하면 기본 GITHUB_TOKEN 으로 커밋되어
+          # PR 에 CI 가 트리거되지 않는다 = 검증 게이트 무력화.
           claude_args: |
             --model claude-sonnet-5
             --max-turns 25
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm:*),Bash(npx:*),mcp__github_file_ops__commit_files,mcp__github__*"
           prompt: |
             이슈 #${{ github.event.issue.number }} 를 처리하세요.
 
@@ -134,6 +142,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5
             --max-turns 40
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm:*),Bash(npx:*),mcp__github_file_ops__commit_files,mcp__github__*"
           prompt: |
             이슈 #${{ github.event.issue.number }} 는 검토를 통과했습니다. 구현하세요.
 
