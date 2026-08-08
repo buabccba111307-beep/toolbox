@@ -139,9 +139,13 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # 복잡한 작업에 Opus 가 필요하면 --model claude-opus-5 로 올린다.
           # 사용량 소모가 크게 늘어나므로 기본은 Sonnet 으로 둔다.
+          #
+          # 턴 상한 실측: 도구 하나 = lib + 테스트 + 페이지 + 항목 + e2e.
+          # 80 턴으로도 부족한 작업이 있었다(JPEG 바이트 파싱). 120 으로 둔다.
+          # 그래도 error_max_turns 가 나면 이슈를 더 잘게 쪼개는 게 맞다.
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 80
+            --max-turns 120
             --allowedTools "Read,Write,Edit,Glob,Grep,TodoWrite,Bash(npm:*),Bash(npx:*),Bash(ls:*),Bash(cat:*),Bash(mkdir:*),Bash(find:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),mcp__github_file_ops__commit_files,mcp__github__*"
           prompt: |
             이슈 #${{ github.event.issue.number }} 는 검토를 통과했습니다. 구현하세요.
