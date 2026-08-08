@@ -57,6 +57,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 이전 실행이 실패하면 auto/task/<n> 브랜치가 남는다. 재시도가 그 낡은
+      # 브랜치를 재사용하면 분기점이 옛날 main 이라 PR 이 무관한 파일까지 물고 온다.
+      # 열린 PR 이 없을 때만 지운다 — 진행 중인 작업은 건드리지 않는다.
+      - name: 이전 실패가 남긴 브랜치 정리
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: auto/task/${{ github.event.issue.number }}
+        run: |
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "열린 PR 이 있으므로 $BRANCH 를 유지합니다."
+          elif git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git push origin --delete "$BRANCH"
+            echo "낡은 브랜치 $BRANCH 를 삭제했습니다."
+          else
+            echo "정리할 브랜치가 없습니다."
+          fi
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -126,6 +143,23 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      # 이전 실행이 실패하면 auto/task/<n> 브랜치가 남는다. 재시도가 그 낡은
+      # 브랜치를 재사용하면 분기점이 옛날 main 이라 PR 이 무관한 파일까지 물고 온다.
+      # 열린 PR 이 없을 때만 지운다 — 진행 중인 작업은 건드리지 않는다.
+      - name: 이전 실패가 남긴 브랜치 정리
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: auto/task/${{ github.event.issue.number }}
+        run: |
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "열린 PR 이 있으므로 $BRANCH 를 유지합니다."
+          elif git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git push origin --delete "$BRANCH"
+            echo "낡은 브랜치 $BRANCH 를 삭제했습니다."
+          else
+            echo "정리할 브랜치가 없습니다."
+          fi
 
       - uses: actions/setup-node@v5
         with:
