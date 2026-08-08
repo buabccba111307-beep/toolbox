@@ -1,0 +1,235 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="사진 GPS/EXIF 제거 — toolbox"
+  description="JPEG 사진에 담긴 GPS 위치·촬영 기기 등 EXIF 메타데이터를 확인하고 제거합니다. 파일이 기기를 벗어나지 않습니다."
+>
+  <h1>사진 GPS/EXIF 제거</h1>
+  <p>
+    JPEG 사진을 온라인에 올리기 전, 파일에 숨어 있는 촬영 위치(GPS)와 기기 정보를 확인하고
+    지운 뒤 다운로드하세요. 파일은 브라우저 밖으로 전송되지 않습니다.
+  </p>
+
+  <label for="file-input">JPEG 파일 선택</label>
+  <input id="file-input" type="file" accept="image/jpeg" />
+
+  <p id="status" role="status"></p>
+
+  <div id="summary" class="summary" hidden>
+    <h2>메타데이터 요약</h2>
+    <dl id="summary-list"></dl>
+    <p id="gps-warning" class="warning" hidden>
+      ⚠️ 이 사진에는 촬영 위치(GPS) 정보가 포함되어 있습니다.
+    </p>
+  </div>
+
+  <button id="strip-btn" type="button" hidden>메타데이터 제거하고 다운로드</button>
+
+  <p id="error" class="error" role="alert"></p>
+
+  <h2>EXIF 에는 무엇이 담겨 있나요</h2>
+  <p>
+    스마트폰이나 디지털 카메라로 찍은 JPEG 사진에는 이미지 데이터 외에도 EXIF 라는 메타데이터가
+    함께 저장됩니다. 촬영 기기의 제조사·모델명, 촬영 일시는 물론, GPS 가 켜져 있었다면
+    사진을 찍은 정확한 위도·경도까지 포함될 수 있습니다. 사진 파일 자체를 열어 보지 않는 한
+    이런 정보가 들어 있는지 눈으로는 알 수 없습니다.
+  </p>
+
+  <h2>왜 지우고 올려야 하나요</h2>
+  <p>
+    SNS 나 커뮤니티, 중고거래 플랫폼에 사진을 올릴 때 EXIF 의 GPS 정보가 그대로 남아 있으면
+    집 주소나 자주 가는 장소가 의도치 않게 노출될 수 있습니다. 이 도구는 업로드한 사진의
+    EXIF 를 브라우저 안에서 직접 읽어 GPS·기기 정보 유무를 보여주고, 원한다면 해당
+    메타데이터만 제거한 새 파일을 만들어 줍니다. 이미지 화질 자체는 변하지 않습니다.
+  </p>
+
+  <p class="privacy-note">
+    파일은 서버로 전송되지 않습니다. 선택한 사진은 이 브라우저 탭 안에서만 처리되고,
+    새로고침하면 사라집니다.
+  </p>
+</Base>
+
+<style>
+  input[type='file'] {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+
+  #status {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .summary {
+    margin-top: 1rem;
+    padding: 1rem 1.125rem;
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+  }
+
+  .summary h2 {
+    margin-top: 0;
+  }
+
+  dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.375rem 1rem;
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+
+  .warning {
+    margin: 0.75rem 0 0;
+    color: #b45309;
+    font-size: 0.875rem;
+  }
+
+  button {
+    margin-top: 1rem;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: var(--accent);
+  }
+
+  .error {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: #dc2626;
+    font-size: 0.875rem;
+  }
+
+  .privacy-note {
+    margin-top: 2rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+</style>
+
+<script>
+  import { parseExif, stripExif, ExifParseError, type ExifSummary } from '../../lib/exif-strip';
+
+  const fileInput = document.querySelector<HTMLInputElement>('#file-input');
+  const statusEl = document.querySelector<HTMLParagraphElement>('#status');
+  const summaryEl = document.querySelector<HTMLDivElement>('#summary');
+  const summaryList = document.querySelector<HTMLDListElement>('#summary-list');
+  const gpsWarning = document.querySelector<HTMLParagraphElement>('#gps-warning');
+  const stripButton = document.querySelector<HTMLButtonElement>('#strip-btn');
+  const errorEl = document.querySelector<HTMLParagraphElement>('#error');
+
+  if (fileInput && statusEl && summaryEl && summaryList && gpsWarning && stripButton && errorEl) {
+    let currentFile: File | null = null;
+    let currentBuffer: ArrayBuffer | null = null;
+
+    const renderSummary = (summary: ExifSummary): void => {
+      summaryList.innerHTML = '';
+
+      const addRow = (label: string, value: string): void => {
+        const dt = document.createElement('dt');
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        dd.textContent = value;
+        summaryList.append(dt, dd);
+      };
+
+      addRow('EXIF 존재', summary.hasExif ? '있음' : '없음');
+      if (summary.make) addRow('제조사', summary.make);
+      if (summary.model) addRow('모델', summary.model);
+      if (summary.dateTime) addRow('촬영 일시', summary.dateTime);
+      if (summary.hasGps && summary.gps) {
+        addRow('GPS 좌표', `${summary.gps.lat.toFixed(6)}, ${summary.gps.lon.toFixed(6)}`);
+      } else {
+        addRow('GPS 정보', '없음');
+      }
+
+      gpsWarning.hidden = !summary.hasGps;
+      summaryEl.hidden = false;
+      stripButton.hidden = !summary.hasExif;
+    };
+
+    const reset = (): void => {
+      errorEl.textContent = '';
+      statusEl.textContent = '';
+      summaryEl.hidden = true;
+      stripButton.hidden = true;
+      currentFile = null;
+      currentBuffer = null;
+    };
+
+    fileInput.addEventListener('change', async () => {
+      reset();
+      const file = fileInput.files?.[0];
+      if (!file) return;
+
+      currentFile = file;
+      statusEl.textContent = '분석 중...';
+
+      try {
+        const buffer = await file.arrayBuffer();
+        currentBuffer = buffer;
+        const summary = parseExif(buffer);
+        statusEl.textContent = '';
+        renderSummary(summary);
+      } catch (err) {
+        statusEl.textContent = '';
+        errorEl.textContent =
+          err instanceof ExifParseError ? err.message : 'JPEG 파일을 읽는 중 오류가 발생했습니다.';
+      }
+    });
+
+    stripButton.addEventListener('click', () => {
+      if (!currentBuffer || !currentFile) return;
+      errorEl.textContent = '';
+
+      try {
+        const stripped = stripExif(currentBuffer);
+        const blob = new Blob([stripped], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+
+        const baseName = currentFile.name.replace(/\.jpe?g$/i, '');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${baseName || 'photo'}-no-exif.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        errorEl.textContent =
+          err instanceof ExifParseError ? err.message : '메타데이터를 제거하는 중 오류가 발생했습니다.';
+      }
+    });
+  }
+</script>
