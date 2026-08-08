@@ -10,7 +10,8 @@
 2. **`src/lib/<name>.test.ts`** — Vitest. 정상 케이스, 경계값, 잘못된 입력을 모두 덮는다.
 3. **`src/pages/tools/<slug>.astro`** — `Base` 레이아웃 사용. `<script>` 안에서 lib 함수를 import 해 DOM 에 연결.
    입력 요소에는 반드시 `<label for>` 를 붙인다 (접근성 + E2E 선택자).
-4. **`src/pages/index.astro`** 의 `tools` 배열에 항목 추가.
+4. **`src/tools/entries/<slug>.ts`** — 목록에 노출할 메타데이터를 담은 파일을 새로 만든다.
+   목록 페이지가 이 디렉토리를 자동으로 훑으므로 **`index.astro` 는 건드리지 않는다.**
 5. **`e2e/<slug>.spec.ts`** — Playwright. 빌드 산출물을 대상으로 실제 동작을 검증.
 6. 페이지 하단에 **주제 설명 문단 2개 이상**. SEO 와 애드센스 심사에 필요하다.
 
@@ -61,7 +62,15 @@ Canvas, File API, WebCodecs, WASM 을 쓰는 도구는 로직 전체를 순수 �
 - 사람 승인 없는 머지
 - 지시받은 범위 밖의 파일 수정. 벗어나야 한다면 중단하고 `TASK_BLOCKED` 을 출력한다
 
-## 충돌 주의
+## 동시 작업 시 지켜야 할 것
 
-여러 에이전트가 동시에 작업할 때 **`src/pages/index.astro` 의 `tools` 배열은 공통 접점**이다.
-이 파일은 배열에 한 줄 추가하는 것 외에는 건드리지 말 것.
+여러 에이전트가 병렬로 작업한다. **공유 파일을 수정하면 충돌이 난다.**
+
+새 도구를 추가할 때 만드는 파일은 전부 그 도구 전용이다 (`src/lib/<name>.*`,
+`src/pages/tools/<slug>.astro`, `src/tools/entries/<slug>.ts`, `e2e/<slug>.spec.ts`).
+**기존 파일은 수정하지 않는다.** 목록 등록도 파일을 새로 만드는 것으로 끝난다 —
+예전에는 `index.astro` 의 배열을 손으로 고쳤고, 그래서 동시에 추가된 도구들이
+매번 같은 줄에서 충돌했다.
+
+공유 파일(`index.astro`, `Base.astro`, `registry.ts`, 설정 파일)을 꼭 고쳐야 하는
+상황이면 멈추고 이슈에 그 이유를 남길 것.

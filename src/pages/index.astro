@@ -1,30 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
+import { tools, toolHref } from '../tools/registry';
 
-// 도구를 추가할 때 이 배열에만 항목을 넣으면 됩니다.
-// 에이전트가 도구를 추가하는 작업 = 라우트 파일 하나 + 이 배열 한 줄.
-const tools = [
-  {
-    href: '/tools/px-to-rem/',
-    name: 'px ↔ rem 변환기',
-    description: 'CSS 단위를 양방향으로 변환합니다. root 폰트 크기 조정 가능.',
-  },
-  {
-    href: '/tools/json-formatter/',
-    name: 'JSON 포맷터',
-    description: 'JSON 을 보기 좋게 정렬하거나 한 줄로 압축합니다. 잘못된 JSON 은 원인을 알려줍니다.',
-  },
-  {
-    href: '/tools/cron-describe/',
-    name: 'cron 표현식 설명기',
-    description: '5필드 cron 표현식을 한국어 설명 문장으로 바꿔줍니다.',
-  },
-  {
-    href: '/tools/id-photo/',
-    name: '증명사진 규격 맞추기',
-    description: '여권·이력서 등 증명사진 규격(mm, DPI)에 맞게 사진을 자르고 리사이즈해서 내려받습니다.',
-  },
-];
+// 목록은 src/tools/entries/ 를 훑어 자동으로 만들어집니다.
+// 도구를 추가할 때 이 파일은 건드리지 않습니다 — 항목 파일 하나만 새로 만드세요.
 ---
 
 <Base
@@ -38,7 +17,7 @@ const tools = [
     {
       tools.map((tool) => (
         <li>
-          <a href={tool.href}>{tool.name}</a>
+          <a href={toolHref(tool)}>{tool.name}</a>
           <span>{tool.description}</span>
         </li>
       ))
