@@ -1,0 +1,14 @@
+{
+  // wrangler 설정을 명시적으로 둔다.
+  // 이 파일이 없으면 wrangler 가 자동 감지 모드로 들어가 `astro add cloudflare`
+  // (SSR 어댑터)를 설치하려 하고, public/.assetsignore 를 못 찾아 실패한다.
+  // 이 사이트는 완전 정적이라 어댑터가 필요 없다 — dist 를 그대로 서빙하면 된다.
+  //
+  // "name" 은 Cloudflare 프로젝트(Worker) 이름과 같아야 한다.
+  // 대시보드의 프로젝트 이름을 바꾸면 여기도 함께 바꿀 것.
+  "name": "dev-tools",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}
