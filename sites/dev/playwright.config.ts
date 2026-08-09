@@ -19,9 +19,9 @@ export default defineConfig({
 
   // dev 서버가 아니라 빌드 산출물을 검증한다.
   webServer: {
-    command: `npm run build && npm run preview -- --port ${PORT}`,
+    command: `npm run build && node ../../scripts/serve-dist.mjs --dir dist --port ${PORT}`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env['CI'],
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });
