@@ -1,0 +1,341 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="동영상 GIF 변환 — toolbox"
+  description="동영상의 구간을 시작/끝 시각으로 지정해 GIF 움짤로 변환하고 다운로드합니다. 모든 처리는 브라우저 안에서 끝납니다."
+>
+  <h1>동영상 GIF 변환</h1>
+  <p>
+    짧은 동영상을 업로드하고 움짤로 만들 구간과 fps·최대 가로폭을 정하면, 브라우저 안에서 바로
+    GIF 로 변환해 다운로드할 수 있습니다. <strong>파일은 기기를 벗어나지 않습니다</strong> —
+    업로드가 아니라 브라우저 안에서 바로 처리됩니다.
+  </p>
+
+  <div>
+    <label for="video-input">동영상 업로드 (mp4/webm 등)</label>
+    <input id="video-input" type="file" accept="video/*" />
+  </div>
+
+  <p id="video-meta" class="meta"></p>
+
+  <div class="grid">
+    <div>
+      <label for="start-sec">시작 시각 (초)</label>
+      <input id="start-sec" type="number" step="0.1" min="0" value="0" inputmode="decimal" />
+    </div>
+
+    <div>
+      <label for="end-sec">끝 시각 (초)</label>
+      <input id="end-sec" type="number" step="0.1" min="0" value="1" inputmode="decimal" />
+    </div>
+
+    <div>
+      <label for="fps">fps (초당 프레임 수, 최대 30)</label>
+      <input id="fps" type="number" step="1" min="1" value="10" inputmode="numeric" />
+    </div>
+
+    <div>
+      <label for="max-width">출력 최대 가로 픽셀</label>
+      <input id="max-width" type="number" step="1" min="1" value="480" inputmode="numeric" />
+    </div>
+  </div>
+
+  <button id="convert-btn" type="button" disabled>GIF 만들기</button>
+
+  <p id="status" role="status"></p>
+  <p id="error" class="error" role="alert"></p>
+
+  <div class="preview-row">
+    <video id="source-video" hidden></video>
+    <canvas id="work-canvas" hidden></canvas>
+    <img id="preview-img" alt="변환된 GIF 미리보기" hidden />
+  </div>
+
+  <a id="download-link" class="download-link" download="video.gif" hidden>GIF 다운로드</a>
+
+  <h2>왜 파일을 직접 들고 있어야 변환할 수 있나요</h2>
+  <p>
+    "동영상을 GIF 로 바꾸는 방법"은 검색으로 쉽게 찾을 수 있지만, 그 방법을 실제로 지금 갖고 있는
+    동영상 파일에 적용해서 움짤을 만들어 주지는 못합니다. 이 도구는 브라우저의 <code>&lt;video&gt;</code>
+    요소로 지정한 구간을 프레임 단위로 재생하며 Canvas 에 그리고, 프레임마다 픽셀을 읽어 GIF89a
+    바이트열로 직접 인코딩합니다. 색상 팔레트 생성과 LZW 압축까지 외부 라이브러리 없이 브라우저
+    안에서 전부 처리됩니다.
+  </p>
+
+  <h2>파일이 기기를 벗어나지 않습니다</h2>
+  <p>
+    이 도구는 업로드한 동영상을 서버로 전송하지 않습니다. 파일을 선택하는 순간부터 프레임 캡처·
+    GIF 인코딩·다운로드까지 전부 이 브라우저 탭 안에서 처리되고, 새로고침하면 아무 데이터도
+    남지 않습니다.
+  </p>
+
+  <p class="privacy-note">
+    파일은 서버로 전송되지 않습니다. 선택한 동영상은 이 브라우저 탭 안에서만 처리되고,
+    새로고침하면 사라집니다.
+  </p>
+</Base>
+
+<style>
+  .grid {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 30rem) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  input[type='file'] {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0;
+    font-family: inherit;
+    color: var(--fg);
+  }
+
+  input[type='number'] {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+
+  .meta {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  #status {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+
+  .error {
+    min-height: 1.25em;
+    margin: 0.75rem 0 0;
+    color: #dc2626;
+    font-size: 0.875rem;
+  }
+
+  button {
+    display: block;
+    margin: 1.25rem auto 0;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    cursor: pointer;
+  }
+
+  button:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .preview-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.5rem;
+  }
+
+  #preview-img {
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+  }
+
+  .download-link {
+    display: block;
+    width: fit-content;
+    margin: 1.25rem auto 0;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    text-decoration: none;
+  }
+
+  .download-link:hover {
+    border-color: var(--accent);
+  }
+
+  .privacy-note {
+    margin-top: 2rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+</style>
+
+<script>
+  import {
+    VideoToGifError,
+    buildPalette,
+    calcFrameTimestamps,
+    calcGifDimensions,
+    encodeGif,
+    mapPixelsToPalette,
+    resolveOptions,
+  } from '../../lib/video-to-gif';
+
+  const videoInput = document.querySelector<HTMLInputElement>('#video-input');
+  const videoMetaEl = document.querySelector<HTMLParagraphElement>('#video-meta');
+  const startInput = document.querySelector<HTMLInputElement>('#start-sec');
+  const endInput = document.querySelector<HTMLInputElement>('#end-sec');
+  const fpsInput = document.querySelector<HTMLInputElement>('#fps');
+  const maxWidthInput = document.querySelector<HTMLInputElement>('#max-width');
+  const convertButton = document.querySelector<HTMLButtonElement>('#convert-btn');
+  const statusEl = document.querySelector<HTMLParagraphElement>('#status');
+  const errorEl = document.querySelector<HTMLParagraphElement>('#error');
+  const sourceVideo = document.querySelector<HTMLVideoElement>('#source-video');
+  const workCanvas = document.querySelector<HTMLCanvasElement>('#work-canvas');
+  const previewImg = document.querySelector<HTMLImageElement>('#preview-img');
+  const downloadLink = document.querySelector<HTMLAnchorElement>('#download-link');
+
+  if (
+    videoInput &&
+    videoMetaEl &&
+    startInput &&
+    endInput &&
+    fpsInput &&
+    maxWidthInput &&
+    convertButton &&
+    statusEl &&
+    errorEl &&
+    sourceVideo &&
+    workCanvas &&
+    previewImg &&
+    downloadLink
+  ) {
+    let currentUrl: string | null = null;
+    let currentGifUrl: string | null = null;
+
+    const seekTo = (time: number): Promise<void> =>
+      new Promise((resolve) => {
+        const onSeeked = (): void => {
+          sourceVideo.removeEventListener('seeked', onSeeked);
+          resolve();
+        };
+        sourceVideo.addEventListener('seeked', onSeeked);
+        sourceVideo.currentTime = time;
+      });
+
+    videoInput.addEventListener('change', () => {
+      errorEl.textContent = '';
+      statusEl.textContent = '';
+      videoMetaEl.textContent = '';
+      convertButton.disabled = true;
+      previewImg.hidden = true;
+      downloadLink.hidden = true;
+
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
+        currentUrl = null;
+      }
+
+      const file = videoInput.files?.[0];
+      if (!file) return;
+
+      const url = URL.createObjectURL(file);
+      currentUrl = url;
+
+      const onLoadedMetadata = (): void => {
+        sourceVideo.removeEventListener('loadedmetadata', onLoadedMetadata);
+        videoMetaEl.textContent = `길이 ${sourceVideo.duration.toFixed(2)}초, ${sourceVideo.videoWidth}x${sourceVideo.videoHeight}px`;
+        endInput.value = Math.min(1, sourceVideo.duration).toFixed(1);
+        convertButton.disabled = false;
+      };
+      sourceVideo.addEventListener('loadedmetadata', onLoadedMetadata);
+      sourceVideo.src = url;
+    });
+
+    convertButton.addEventListener('click', async () => {
+      errorEl.textContent = '';
+      statusEl.textContent = '';
+      previewImg.hidden = true;
+      downloadLink.hidden = true;
+      convertButton.disabled = true;
+
+      if (currentGifUrl) {
+        URL.revokeObjectURL(currentGifUrl);
+        currentGifUrl = null;
+      }
+
+      try {
+        const options = {
+          startSec: Number(startInput.value),
+          endSec: Number(endInput.value),
+          fps: Number(fpsInput.value),
+          maxWidth: Number(maxWidthInput.value),
+        };
+        const resolved = resolveOptions(options, sourceVideo.duration);
+        const { width, height } = calcGifDimensions(sourceVideo.videoWidth, sourceVideo.videoHeight, resolved.maxWidth);
+        const timestamps = calcFrameTimestamps(resolved.startSec, resolved.endSec, resolved.fps);
+
+        workCanvas.width = width;
+        workCanvas.height = height;
+        const ctx = workCanvas.getContext('2d');
+        if (!ctx) throw new VideoToGifError('캔버스를 초기화할 수 없습니다.');
+
+        const framePixels: Uint8ClampedArray[] = [];
+        for (let i = 0; i < timestamps.length; i++) {
+          statusEl.textContent = `프레임 캡처 중... (${i + 1}/${timestamps.length})`;
+          await seekTo(timestamps[i]!);
+          ctx.drawImage(sourceVideo, 0, 0, width, height);
+          framePixels.push(ctx.getImageData(0, 0, width, height).data);
+        }
+
+        statusEl.textContent = 'GIF 인코딩 중...';
+
+        const combined = new Uint8ClampedArray(framePixels.length * width * height * 4);
+        framePixels.forEach((pixels, i) => combined.set(pixels, i * width * height * 4));
+        const palette = buildPalette(combined, 256);
+        const frames = framePixels.map((pixels) => mapPixelsToPalette(pixels, palette));
+
+        const delayCs = Math.max(1, Math.round(100 / resolved.fps));
+        const gifBytes = encodeGif(frames, width, height, palette, delayCs);
+
+        const blob = new Blob([gifBytes.slice()], { type: 'image/gif' });
+        const gifUrl = URL.createObjectURL(blob);
+        currentGifUrl = gifUrl;
+
+        previewImg.src = gifUrl;
+        previewImg.hidden = false;
+        downloadLink.href = gifUrl;
+        downloadLink.hidden = false;
+        statusEl.textContent = `완료 (프레임 ${timestamps.length}개)`;
+      } catch (err) {
+        statusEl.textContent = '';
+        errorEl.textContent = err instanceof VideoToGifError ? err.message : '변환 중 오류가 발생했습니다.';
+      } finally {
+        convertButton.disabled = false;
+      }
+    });
+  }
+</script>
